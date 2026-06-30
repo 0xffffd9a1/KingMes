@@ -1,4 +1,4 @@
-# Корневой .gitignore
+# .gitignore
 # Общее
 *.log
 *.tmp
@@ -17,3 +17,4 @@ Thumbs.db
 # Сервер (Go)
 /server/bin/
 /server/tmp/
+/server/data.db   # База данных не должна попадать в репозиторий

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/chat_list_screen.dart';
+import 'screens/login_screen.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -20,7 +21,7 @@ class MyApp extends StatelessWidget {
         cardColor: const Color(0xFF2A2A3C),
         fontFamily: 'Roboto',
       ),
-      home: const ChatListScreen(),
+      home: const LoginScreen(),
     );
   }
 }

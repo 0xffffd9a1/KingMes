@@ -1,94 +1,84 @@
 import 'package:flutter/material.dart';
-import 'package:client/services/websocket_service.dart';
+import 'package:client/services/storage_service.dart';
+import 'package:client/services/contact_service.dart';
+import 'package:client/models/contact.dart';
+import 'chat_screen.dart';
+import 'search_screen.dart';
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
-
   @override
   State<ChatListScreen> createState() => _ChatListScreenState();
 }
 
 class _ChatListScreenState extends State<ChatListScreen> {
-  final WebSocketService _wsService = WebSocketService();
-  final TextEditingController _textController = TextEditingController();
-  final List<String> _messages = [];
+  final ContactService _contactService = ContactService();
+  List<Contact> _contacts = [];
 
   @override
   void initState() {
     super.initState();
-    // Подключаемся к серверу при старте
-    _wsService.connect('ws://localhost:8080/ws');
-    // Слушаем входящие сообщения от сервера
-    _wsService.messageStream.listen((msg) {
-      setState(() {
-        _messages.add('Ответ сервера: ${msg['text'] ?? msg.toString()}');
-      });
+    _loadContacts();
+  }
+
+  Future<void> _loadContacts() async {
+    final contacts = await _contactService.getContacts();
+    setState(() {
+      _contacts = contacts;
     });
-  }
-
-  @override
-  void dispose() {
-    _wsService.dispose();
-    _textController.dispose();
-    super.dispose();
-  }
-
-  void _sendMessage() {
-    final text = _textController.text.trim();
-    if (text.isNotEmpty) {
-      _wsService.send({'text': text});
-      setState(() {
-        _messages.add('Я: $text');
-      });
-      _textController.clear();
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Тест WebSocket'),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              itemCount: _messages.length,
-              itemBuilder: (context, index) => ListTile(
-                title: Text(
-                  _messages[index],
-                  style: const TextStyle(color: Colors.white70),
-                ),
-              ),
-            ),
+        title: const Text('Сообщения'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person_add),
+            onPressed: () async {
+              final added = await Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchScreen()));
+              if (added == true) _loadContacts();
+            },
           ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _textController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      hintText: 'Введите сообщение',
-                      hintStyle: TextStyle(color: Colors.white38),
-                      border: OutlineInputBorder(),
-                    ),
-                    onSubmitted: (_) => _sendMessage(),
+          PopupMenuButton<String>(
+            onSelected: (value) async {
+              if (value == 'show_key') {
+                final key = await StorageService().getPublicKey();
+                showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Ваш публичный ключ'),
+                    content: Text(key ?? 'не найден'),
+                    actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('ОК'))],
                   ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.send, color: Colors.blueAccent),
-                  onPressed: _sendMessage,
-                ),
-              ],
-            ),
+                );
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'show_key', child: Text('Показать ключ')),
+            ],
           ),
         ],
       ),
+      body: _contacts.isEmpty
+          ? const Center(child: Text('Нет контактов', style: TextStyle(color: Colors.white54)))
+          : ListView.builder(
+              itemCount: _contacts.length,
+              itemBuilder: (context, index) {
+                final contact = _contacts[index];
+                return ListTile(
+                  title: Text(contact.nickname, style: const TextStyle(color: Colors.white)),
+                  subtitle: Text(contact.publicKey.substring(0, 12) + '...', style: const TextStyle(color: Colors.white38)),
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(
+                      peerPublicKey: contact.publicKey,
+                      peerNickname: contact.nickname,
+                    )));
+                  },
+                );
+              },
+            ),
     );
   }
 }
